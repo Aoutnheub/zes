@@ -262,17 +262,18 @@ pub const Parser = struct {
 
     /// Display the help message
     /// @return error or void
-    ///         Error types: Allocator.Error, WriteError
+    ///         Error types: Allocator.Error, Error
     pub fn help(self: *Parser) !void {
-        const cout = std.io.getStdOut();
+        var buf_writer = std.io.bufferedWriter(std.io.getStdOut().writer());
+        const stdout = buf_writer.writer();
         if(!std.mem.eql(u8, self._name, "")) {
-            if(self.colors) { _ = try cout.write(self.title_color); }
-            _ = try cout.write(self._name);
-            if(self.colors) { _ = try cout.write("\x1b[0m"); }
+            if(self.colors) { try stdout.print("{s}", .{self.title_color}); }
+            try stdout.print("{s}", .{self._name});
+            if(self.colors) { try stdout.print("\x1b[0m", .{}); }
         }
         if(!std.mem.eql(u8, self._description, "")) {
-            if(self.colors) { _ = try cout.write(self.description_color); }
-            _ = try cout.write(" - ");
+            if(self.colors) { try stdout.print("{s}", .{self.description_color}); }
+            try stdout.print(" - ", .{});
             var indent = std.mem.zeroes([64:0]u8);
             var indent_size = self._name.len + 3;
             if(indent_size > 64) { indent_size = 64; }
@@ -285,171 +286,149 @@ pub const Parser = struct {
                 var last: usize = 0;
                 while(token) |tk| {
                     if(last == 0) {
-                        _ = try cout.write(self._description[last..tk + 1]);
+                        try stdout.print("{s}", .{self._description[last..tk + 1]});
                     } else {
-                        _ = try cout.write(&indent);
-                        _ = try cout.write(self._description[last..tk + 1]);
-                        _ = try cout.write("\n");
+                        try stdout.print("{s}{s}\n", .{&indent, self._description[last..tk + 1]});
                     }
                     last = tk + 1;
                     token = std.mem.indexOf(u8, self._description[last..], "\n");
                 }
                 if(last < self._description.len - 1) {
-                    _ = try cout.write(&indent);
-                    _ = try cout.write(self._description[last..]);
-                    _ = try cout.write("\n");
+                    try stdout.print("{s}{s}\n", .{&indent, self._description[last..]});
                 }
             } else {
-                _ = try cout.write(self._description);
+                try stdout.print("{s}", .{self._description});
             }
-            if(self.colors) { _ = try cout.write("\x1b[0m"); }
+            if(self.colors) { try stdout.print("\x1b[0m", .{}); }
         }
-        _ = try cout.write("\n");
+        try stdout.print("\n", .{});
 
         if(self._commands.count() != 0) {
             if(!std.mem.eql(u8, self.commands_help_msg, "")) {
-                if(self.colors) { _ = try cout.write(self.header_color); }
-                _ = try cout.write(self.commands_help_msg);
-                if(self.colors) { _ = try cout.write("\x1b[0m"); }
-                _ = try cout.write("\n");
+                if(self.colors) { try stdout.print("{s}", .{self.header_color}); }
+                try stdout.print("{s}", .{self.commands_help_msg});
+                if(self.colors) { try stdout.print("\x1b[0m", .{}); }
+                try stdout.print("\n", .{});
             }
             var commands_iter = self._commands.iterator();
             while(commands_iter.next()) |entry| {
-                if(self.colors) { _ = try cout.write(self.command_color); }
-                _ = try cout.write("    ");
-                _ = try cout.write(entry.key_ptr.*);
-                if(self.colors) { _ = try cout.write("\x1b[0m"); }
-                _ = try cout.write("\n");
+                if(self.colors) { try stdout.print("{s}", .{self.command_color}); }
+                try stdout.print("    {s}", .{entry.key_ptr.*});
+                if(self.colors) { try stdout.print("\x1b[0m", .{}); }
+                try stdout.print("\n", .{});
                 var indent = "        ";
                 if(!std.mem.eql(u8, entry.value_ptr.*, "")) {
-                    if(self.colors) { _ = try cout.write(self.command_description_color); }
+                    if(self.colors) { try stdout.print("{s}", .{self.command_description_color}); }
                     var token = std.mem.indexOf(u8, entry.value_ptr.*, "\n");
                     if(token != null) {
                         var last: usize = 0;
                         while(token) |tk| {
-                            _ = try cout.write(indent);
-                            _ = try cout.write(entry.value_ptr.*[last..tk + 1]);
-                            _ = try cout.write("\n");
+                            try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*[last..tk + 1]});
                             last = tk + 1;
                             token = std.mem.indexOf(u8, entry.value_ptr.*[last..], "\n");
                         }
                         if(last < entry.value_ptr.*.len - 1) {
-                            _ = try cout.write(indent);
-                            _ = try cout.write(entry.value_ptr.*[last..]);
-                            _ = try cout.write("\n");
+                            try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*[last..]});
                         }
                     } else {
-                        _ = try cout.write(indent);
-                        _ = try cout.write(entry.value_ptr.*);
-                        _ = try cout.write("\n");
+                        try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*});
                     }
-                    if(self.colors) { _ = try cout.write("\x1b[0m"); }
+                    if(self.colors) { try stdout.print("\x1b[0m", .{}); }
                 }
-                _ = try cout.write("\n");
+                try stdout.print("\n", .{});
             }
         }
 
         if(self._flags.count() != 0) {
             var abbr = try self.getFlagsAbbr();
             if(!std.mem.eql(u8, self.flags_help_msg, "")) {
-                if(self.colors) { _ = try cout.write(self.header_color); }
-                _ = try cout.write(self.flags_help_msg);
-                if(self.colors) { _ = try cout.write("\x1b[0m"); }
-                _ = try cout.write("\n");
+                if(self.colors) { try stdout.print("{s}", .{self.header_color}); }
+                try stdout.print("{s}", .{self.flags_help_msg});
+                if(self.colors) { try stdout.print("\x1b[0m", .{}); }
+                try stdout.print("\n", .{});
             }
             var flags_iter = self._flags.iterator();
             while(flags_iter.next()) |entry| {
-                if(self.colors) { _ = try cout.write(self.flag_color); }
-                _ = try cout.write("    --");
-                _ = try cout.write(entry.key_ptr.*);
+                if(self.colors) { try stdout.print("{s}", .{self.flag_color}); }
+                try stdout.print("    --{s}", .{entry.key_ptr.*});
                 var tmp = abbr.get(entry.key_ptr.*);
-                if(tmp != null) { _ = try cout.write(", -"); _ = try cout.write(&[_]u8{tmp.?}); }
-                if(self.colors) { _ = try cout.write("\x1b[0m"); }
-                _ = try cout.write("\n");
+                if(tmp != null) { try stdout.print(", -{c}", .{tmp.?}); }
+                if(self.colors) { try stdout.print("\x1b[0m", .{}); }
+                try stdout.print("\n", .{});
                 var indent = "        ";
                 if(!std.mem.eql(u8, entry.value_ptr.*, "")) {
-                    if(self.colors) { _ = try cout.write(self.flag_description_color); }
+                    if(self.colors) { try stdout.print("{s}", .{self.flag_description_color}); }
                     var token = std.mem.indexOf(u8, entry.value_ptr.*, "\n");
                     if(token != null) {
                         var last: usize = 0;
                         while(token) |tk| {
-                            _ = try cout.write(indent);
-                            _ = try cout.write(entry.value_ptr.*[last..tk + 1]);
-                            _ = try cout.write("\n");
+                            try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*[last..tk + 1]});
                             last = tk + 1;
                             token = std.mem.indexOf(u8, entry.value_ptr.*[last..], "\n");
                         }
                         if(last < entry.value_ptr.*.len - 1) {
-                            _ = try cout.write(indent);
-                            _ = try cout.write(entry.value_ptr.*[last..]);
-                            _ = try cout.write("\n");
+                            try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*[last..]});
                         }
                     } else {
-                        _ = try cout.write(indent);
-                        _ = try cout.write(entry.value_ptr.*);
-                        _ = try cout.write("\n");
+                        try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*});
                     }
-                    if(self.colors) { _ = try cout.write("\x1b[0m"); }
+                    if(self.colors) { try stdout.print("\x1b[0m", .{}); }
                 }
-                _ = try cout.write("\n");
+                try stdout.print("\n", .{});
             }
         }
 
         if(self._options.count() != 0) {
             var abbr = try self.getOptionsAbbr();
             if(!std.mem.eql(u8, self.options_help_msg, "")) {
-                if(self.colors) { _ = try cout.write(self.header_color); }
-                _ = try cout.write(self.options_help_msg);
-                if(self.colors) { _ = try cout.write("\x1b[0m"); }
-                _ = try cout.write("\n");
+                if(self.colors) { try stdout.print("{s}", .{self.header_color}); }
+                try stdout.print("{s}", .{self.options_help_msg});
+                if(self.colors) { try stdout.print("\x1b[0m", .{}); }
+                try stdout.print("\n", .{});
             }
             var options_iter = self._options.iterator();
             while(options_iter.next()) |entry| {
-                if(self.colors) { _ = try cout.write(self.option_color); }
-                _ = try cout.write("    --");
-                _ = try cout.write(entry.key_ptr.*);
+                if(self.colors) { try stdout.print("{s}", .{self.option_color}); }
+                try stdout.print("    --{s}", .{entry.key_ptr.*});
                 var tmp = abbr.get(entry.key_ptr.*);
-                if(tmp != null) { _ = try cout.write(", -"); _ = try cout.write(&[_]u8{tmp.?}); }
-                if(self.colors) { _ = try cout.write("\x1b[0m"); }
+                if(tmp != null) { try stdout.print(", -{c}", .{tmp.?}); }
+                if(self.colors) { try stdout.print("\x1b[0m", .{}); }
                 if(entry.value_ptr.*.allowed != null) {
-                    if(self.colors) { _ = try cout.write(self.option_allowed_color); }
-                    _ = try cout.write(" ");
+                    if(self.colors) { try stdout.print("{s}", .{self.option_allowed_color}); }
+                    try stdout.print(" ", .{});
                     for(entry.value_ptr.*.allowed.?.items) |alw, idx| {
-                        _ = try cout.write(alw);
+                        try stdout.print("{s}", .{alw});
                         if(idx != entry.value_ptr.*.allowed.?.items.len - 1) {
-                            _ = try cout.write("|");
+                            try stdout.print("|", .{});
                         }
                     }
-                    if(self.colors) { _ = try cout.write("\x1b[0m"); }
+                    if(self.colors) { try stdout.print("\x1b[0m", .{}); }
                 }
-                _ = try cout.write("\n");
+                try stdout.print("\n", .{});
                 var indent = "        ";
                 if(!std.mem.eql(u8, entry.value_ptr.*.help, "")) {
-                    if(self.colors) { _ = try cout.write(self.option_description_color); }
+                    if(self.colors) { try stdout.print("{s}", .{self.option_description_color}); }
                     var token = std.mem.indexOf(u8, entry.value_ptr.*.help, "\n");
                     if(token != null) {
                         var last: usize = 0;
                         while(token) |tk| {
-                            _ = try cout.write(indent);
-                            _ = try cout.write(entry.value_ptr.*.help[last..tk + 1]);
+                            try stdout.print("{s}{s}", .{indent, entry.value_ptr.*.help[last..tk + 1]});
                             last = tk + 1;
                             token = std.mem.indexOf(u8, entry.value_ptr.*.help[last..], "\n");
                         }
                         if(last < entry.value_ptr.*.help.len - 1) {
-                            _ = try cout.write(indent);
-                            _ = try cout.write(entry.value_ptr.*.help[last..]);
-                            _ = try cout.write("\n");
+                            try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*.help[last..]});
                         }
                     } else {
-                        _ = try cout.write(indent);
-                        _ = try cout.write(entry.value_ptr.*.help);
-                        _ = try cout.write("\n");
+                        try stdout.print("{s}{s}\n", .{indent, entry.value_ptr.*.help});
                     }
-                    if(self.colors) { _ = try cout.write("\x1b[0m"); }
+                    if(self.colors) { try stdout.print("\x1b[0m", .{}); }
                 }
-                _ = try cout.write("\n");
+                try stdout.print("\n", .{});
             }
         }
+
+        try buf_writer.flush();
     }
 
     /// Parse the command line arguments
