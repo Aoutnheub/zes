@@ -1,3 +1,7 @@
-# Title
+## Description
 
-[Documentation](DOC.md)
+Command line argument parser.
+
+## Documentation
+
+soon
