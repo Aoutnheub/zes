@@ -1,5 +1,6 @@
 const std = @import("std");
 
+/// Used for coloring output of `Parser.help`
 pub const ANSICode = *const [5:0]u8;
 
 pub const ANSIDefault: ANSICode = "\x1b[39m";
@@ -22,10 +23,32 @@ pub const ANSIBGCyan: ANSICode = "\x1b[46m";
 pub const ANSIBGWhite: ANSICode = "\x1b[47m";
 
 pub const Results = struct {
+    allocator: std.mem.Allocator,
+    /// Stores flag values after parsing
     flag: ?std.hash_map.StringHashMap(bool),
+    /// Stores option values after parsing
     option: ?std.hash_map.StringHashMap([]const u8),
+    /// Stores positional arguments after parsing
     positional: ?std.ArrayList([]const u8),
+    /// Stores the command after parsing
     command: ?[]u8,
+
+    /// Init everything to null
+    pub fn init() Results {
+        return Results{
+            .flag = null,
+            .option = null,
+            .positional = null,
+            .command = null,
+        };
+    }
+
+    pub fn deinit(self: *Results) void {
+        if(self.flag != null) { self.flag.?.deinit(); }
+        if(self.option != null) { self.option.?.deinit(); }
+        if(self.positional != null) { self.positional.?.deinit(); }
+        if(self.command != null) { self.allocator.free(self.command.?); }
+    }
 };
 
 const Option = struct {
@@ -63,21 +86,38 @@ pub const Parser = struct {
     _commands: std.hash_map.StringHashMap([]const u8),
     _name: []const u8,
     _description: []const u8,
+    /// Allocator
     allocator: std.mem.Allocator,
+    /// Return an error if the first argument isn't a command. Ignored if no
+    /// commands have been added
     command_required: bool,
+    /// Header displayed by the `help` function before the command descriptions
     commands_help_msg: []const u8,
+    /// Header displayed by the `help` function before the flag descriptions
     flags_help_msg: []const u8,
+    /// Header displayed by the `help` function before the option descriptions
     options_help_msg: []const u8,
+    /// Color the output of the `help` function
     colors: bool,
+    /// Color of the title outputed by the `help` function
     title_color: ANSICode,
+    /// Color of the description outputed by the `help` function
     description_color: ANSICode,
+    /// Color of the headers outputed by the `help` function
     header_color: ANSICode,
+    /// Color of the command names outputed by the `help` function
     command_color: ANSICode,
+    /// Color of the command's description outputed by the `help` function
     command_description_color: ANSICode,
+    /// Color of the flag names outputed by the `help` function
     flag_color: ANSICode,
+    /// Color of the flag's description outputed by the `help` function
     flag_description_color: ANSICode,
+    /// Color of the option names outputed by the `help` function
     option_color: ANSICode,
+    /// Color of the option's description outputed by the `help` function
     option_description_color: ANSICode,
+    /// Color of the option's allowed values outputed by the `help` function
     option_allowed_color: ANSICode,
 
     fn getFlagsAbbr(self: *Parser) !std.array_hash_map.StringArrayHashMap(u8) {
@@ -159,6 +199,12 @@ pub const Parser = struct {
         self._commands.deinit();
     }
 
+    /// Add a flag
+    /// @param name flag's name
+    /// @param help flag's description
+    /// @param abbr (optional) flag's abbreviation
+    /// @return error or void
+    ///         Error types: ParserError.DuplicateArgument, Allocator.Error
     pub fn addFlag(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8) !void {
         if(!self._flags.contains(name) and !self._options.contains(name)) {
             if(abbr) |ab| {
@@ -176,6 +222,14 @@ pub const Parser = struct {
         }
     }
 
+    /// Add an option
+    /// @param name option's name
+    /// @param help option's description
+    /// @param abbr (optional) option's abbreviation
+    /// @param defaultsTo option's default value
+    /// @param allowed (optional) option's allowed values. Doesn't necessarily need to contain the default value
+    /// @return error or void
+    ///         Error types: ParserError.DuplicateArgument, Allocator.Error
     pub fn addOption(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8, defaults_to: []const u8, allowed: ?std.ArrayList([]const u8)) !void {
         if(!self._flags.contains(name) and !self._options.contains(name)) {
             if(abbr) |ab| {
@@ -193,6 +247,11 @@ pub const Parser = struct {
         }
     }
 
+    /// Add a command
+    /// @param name command's name
+    /// @param help command's description
+    /// @return error or void
+    ///         Error types: ParserError.DuplicateArgument, Allocator.Error
     pub fn addCommand(self: *Parser, name: []const u8, help_: []const u8) !void {
         if(!self._commands.contains(name)) {
             try self._commands.put(name, help_);
@@ -201,6 +260,9 @@ pub const Parser = struct {
         }
     }
 
+    /// Display the help message
+    /// @return error or void
+    ///         Error types: Allocator.Error, WriteError
     pub fn help(self: *Parser) !void {
         const cout = std.io.getStdOut();
         if(!std.mem.eql(u8, self._name, "")) {
@@ -390,8 +452,12 @@ pub const Parser = struct {
         }
     }
 
+    /// Parse the command line arguments
+    /// @return A `Results` type with the parsed arguments or error
+    ///         Error types: ParserError.InvalidArgument, ParserError.InvalidValue, ParserError.MissingValue, Allocator.Error, Error
     pub fn parse(self: *Parser, args: [][:0]u8) !Results {
         var results = Results{
+            .allocator = self.allocator,
             .flag = null,
             .option = null,
             .positional = std.ArrayList([]const u8).init(self.allocator),
