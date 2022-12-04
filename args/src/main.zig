@@ -657,14 +657,6 @@ pub const Parser = struct {
             }
         }
 
-        if(results.flag.?.count() == 0) {
-            results.flag.?.deinit();
-            results.flag = null;
-        }
-        if(results.option.?.count() == 0) {
-            results.option.?.deinit();
-            results.option = null;
-        }
         if(results.positional.?.items.len == 0) {
             results.positional.?.deinit();
             results.positional = null;
