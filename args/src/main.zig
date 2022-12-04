@@ -303,23 +303,15 @@ pub const Parser = struct {
                 indent[indent_size - 1] = ' ';
                 indent_size -= 1;
             }
-            var token = std.mem.indexOf(u8, self._description, "\n");
-            if(token != null) {
-                var last: usize = 0;
-                while(token) |tk| {
-                    if(last == 0) {
-                        try stdout.print("{s}", .{self._description[last..tk + 1]});
-                    } else {
-                        try stdout.print("{s}{s}\n", .{&indent, self._description[last..tk + 1]});
-                    }
-                    last = tk + 1;
-                    token = std.mem.indexOf(u8, self._description[last..], "\n");
+            var tokens = std.mem.tokenize(u8, self._description, "\n");
+            var first_token = true;
+            while(tokens.next()) |token| {
+                if(first_token) {
+                    try stdout.print("{s}\n", .{token});
+                    first_token = false;
+                } else {
+                    try stdout.print("{s}{s}\n", .{&indent, token});
                 }
-                if(last < self._description.len - 1) {
-                    try stdout.print("{s}{s}\n", .{&indent, self._description[last..]});
-                }
-            } else {
-                try stdout.print("{s}", .{self._description});
             }
             if(self.colors) { try stdout.print("\x1b[0m", .{}); }
         }
