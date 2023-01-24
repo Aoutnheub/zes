@@ -314,6 +314,8 @@ pub const Parser = struct {
                 }
             }
             if(self.colors) { try stdout.print("\x1b[0m", .{}); }
+        } else {
+            try stdout.print("\n", .{});
         }
         try stdout.print("\n", .{});
 
@@ -523,6 +525,7 @@ pub const Parser = struct {
                                         } else {
                                             return ParserError.InvalidArgument;
                                         }
+                                        ii += 1;
                                     }
                                 }
                                 i += 1;
