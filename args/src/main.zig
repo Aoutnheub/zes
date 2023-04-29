@@ -67,7 +67,7 @@ pub const Results = struct {
 
 const Option = struct {
     help: []const u8 = "",
-    defaults_to: []const u8 = "",
+    defaults_to: ?[]const u8 = "",
     allowed: ?std.ArrayList([]const u8) = null,
 
     pub fn deinit(self: *Option) void {
@@ -252,7 +252,7 @@ pub const Parser = struct {
     ///     Error types:
     ///         - ParserError.DuplicateArgument (.err field contains the duplicate argument)
     ///         - Allocator.Error
-    pub fn addOption(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8, defaults_to: []const u8, allowed: ?std.ArrayList([]const u8)) !void {
+    pub fn addOption(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8, defaults_to: ?[]const u8, allowed: ?std.ArrayList([]const u8)) !void {
         if(!self._flags.contains(name) and !self._options.contains(name)) {
             if(abbr) |ab| {
                 if(!self._flags_abbr.contains(ab) and !self._options_abbr.contains(ab)) {
@@ -435,16 +435,18 @@ pub const Parser = struct {
         };
         if(self._flags.count() != 0) {
             results.flag = std.hash_map.StringHashMap(bool).init(self.allocator);
-            var iter = self._flags.iterator();
-            while(iter.next()) |entry| {
-                try results.flag.?.put(entry.key_ptr.*, false);
-            }
+            // var iter = self._flags.iterator();
+            // while(iter.next()) |entry| {
+            //     try results.flag.?.put(entry.key_ptr.*, false);
+            // }
         }
         if(self._options.count() != 0) {
             results.option = std.hash_map.StringHashMap([]const u8).init(self.allocator);
             var iter = self._options.iterator();
             while(iter.next()) |entry| {
-                try results.option.?.put(entry.key_ptr.*, entry.value_ptr.*.defaults_to);
+                if(entry.value_ptr.*.defaults_to != null) {
+                    try results.option.?.put(entry.key_ptr.*, entry.value_ptr.*.defaults_to.?);
+                }
             }
         }
 

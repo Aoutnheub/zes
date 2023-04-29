@@ -94,7 +94,7 @@ test "parse" {
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
     try parser.addOption("op", "Test", null, "", null);
     try parser.addOption("op2", "Test", 'O', "5", null);
-    try parser.addOption("op3", "Test", null, "", null);
+    try parser.addOption("op3", "Test", null, null, null);
     try parser.addFlag("flag", "Test", 'f');
     try parser.addFlag("xflag", "Test", 'x');
     try parser.addFlag("yflag", "Test", 'y');
@@ -104,9 +104,12 @@ test "parse" {
     var results = try parser.parse(&a);
     try std.testing.expectEqualStrings("test", results.option.?.get("op").?);
     try std.testing.expectEqualStrings("10", results.option.?.get("op2").?);
+    try std.testing.expect(results.option.?.get("op3") == null);
     try std.testing.expect(results.flag.?.get("flag").?);
     try std.testing.expect(results.flag.?.get("xflag").?);
     try std.testing.expect(results.flag.?.get("yflag").?);
     try std.testing.expect(results.flag.?.get("zflag").?);
     try std.testing.expectEqualStrings("TEST", results.positional.?.items[0]);
 }
+
+// TODO : Test for command
