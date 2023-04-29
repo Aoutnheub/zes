@@ -626,7 +626,7 @@ pub const Parser = struct {
                                     }
                                     i += 2;
                                 } else {
-                                    self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
+                                    self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][1] });
                                     return ParserError.InvalidArgument;
                                 }
                             }
