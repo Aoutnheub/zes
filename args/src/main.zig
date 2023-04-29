@@ -435,10 +435,6 @@ pub const Parser = struct {
         };
         if(self._flags.count() != 0) {
             results.flag = std.hash_map.StringHashMap(bool).init(self.allocator);
-            // var iter = self._flags.iterator();
-            // while(iter.next()) |entry| {
-            //     try results.flag.?.put(entry.key_ptr.*, false);
-            // }
         }
         if(self._options.count() != 0) {
             results.option = std.hash_map.StringHashMap([]const u8).init(self.allocator);
