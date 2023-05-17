@@ -112,4 +112,35 @@ test "parse" {
     try std.testing.expectEqualStrings("TEST", results.positional.?.items[0]);
 }
 
-// TODO : Test for command
+test "command" {
+    var astr: [64:0]u8 = undefined;
+    std.mem.copy(u8, &astr, "exe\x00 command\x00");
+    var a: [2][:0]u8 = .{
+        astr[0..3:0], astr[5..12:0]
+    };
+
+    var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
+    try parser.addCommand("command", "Test");
+
+    var results = try parser.parse(&a);
+    try std.testing.expectEqualStrings("command", results.command.?);
+}
+
+test "missing command" {
+    var astr: [64:0]u8 = undefined;
+    std.mem.copy(u8, &astr, "exe\x00 command\x00");
+    var a: [2][:0]u8 = .{
+        astr[0..3:0], astr[5..12:0]
+    };
+
+    var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
+    parser.command_required = true;
+    try parser.addCommand("cmd", "Test");
+
+    var errored = false;
+    _ = parser.parse(&a) catch |err| {
+        try std.testing.expect(err == args.ParserError.InvalidArgument);
+        errored = true;
+    };
+    try std.testing.expect(errored);
+}
