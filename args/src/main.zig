@@ -20,7 +20,7 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 
-/// Tested on Zig version: 0.11.0-dev.1904+6fc1621cb
+/// Tested on Zig version: 0.11.0-dev.3186+c6966486e
 
 const std = @import("std");
 
