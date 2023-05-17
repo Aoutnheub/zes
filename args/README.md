@@ -144,7 +144,7 @@ Used for coloring output of `Parser.help`
   - `abbr` : (optional) flag's abbreviation
   - Error types
     - `ParserError.DuplicateArgument` : .err field contains the duplicate argument
-    - Allocator.Error
+    - `Allocator.Error`
 
 - `fn addOption(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8, defaults_to: ?[]const u8, allowed: ?std.ArrayList([]const u8)) !void` : Add an option
   - `name` : option's name
