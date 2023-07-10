@@ -10,7 +10,7 @@ pub fn build(b: *std.build.Builder) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.install();
+    b.installArtifact(lib);
 
     const main_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/test.zig" },
