@@ -6,7 +6,7 @@ Command line argument parser.
 
 ```zig
 const std = @import("std");
-const args = @import("./args.zig");
+const args = @import("args.zig");
 
 pub fn main() !void {
     var parser = args.Parser.init(std.heap.page_allocator, "hi", "Say hi");
@@ -23,10 +23,9 @@ pub fn main() !void {
     if(results.flag != null and results.flag.?.get("help") != null) {
         try parser.help();
     } else {
-        if(results.option != null) {
-            const name = results.option.?.get("name");
-            if(name) |n| {
-                std.debug.print("Hi {s}\n", .{ n });
+        if(results.option) |op| {
+            if(op.get("name")) |name| {
+                std.debug.print("Hi {s}\n", .{ name });
             }
         } else {
             std.debug.print("Hi\n", .{});

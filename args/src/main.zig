@@ -1,6 +1,6 @@
 /// MIT License
 
-/// Copyright (c) 2022 Aoutnheub
+/// Copyright (c) 2023 Aoutnheub
 
 /// Permission is hereby granted, free of charge, to any person obtaining a copy
 /// of this software and associated documentation files (the "Software"), to deal
@@ -20,7 +20,7 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 
-/// Tested on Zig version: 0.11.0-dev.3950+a75531073
+/// Tested on Zig version: 0.11.0-dev.4173+8924f81d8
 
 const std = @import("std");
 
@@ -437,12 +437,18 @@ pub const Parser = struct {
             results.flag = std.hash_map.StringHashMap(bool).init(self.allocator);
         }
         if(self._options.count() != 0) {
+            var opts_inserted: u32 = 0;
             results.option = std.hash_map.StringHashMap([]const u8).init(self.allocator);
             var iter = self._options.iterator();
             while(iter.next()) |entry| {
                 if(entry.value_ptr.*.defaults_to != null) {
                     try results.option.?.put(entry.key_ptr.*, entry.value_ptr.*.defaults_to.?);
+                    opts_inserted += 1;
                 }
+            }
+            if(opts_inserted == 0) {
+                results.option.?.deinit();
+                results.option = null;
             }
         }
 
