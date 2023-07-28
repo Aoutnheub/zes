@@ -437,19 +437,16 @@ pub const Parser = struct {
             results.flag = std.hash_map.StringHashMap(bool).init(self.allocator);
         }
         if(self._options.count() != 0) {
-            var opts_inserted: u32 = 0;
             results.option = std.hash_map.StringHashMap([]const u8).init(self.allocator);
             var iter = self._options.iterator();
             while(iter.next()) |entry| {
                 if(entry.value_ptr.*.defaults_to != null) {
                     try results.option.?.put(entry.key_ptr.*, entry.value_ptr.*.defaults_to.?);
-                    opts_inserted += 1;
                 }
             }
-            if(opts_inserted == 0) {
-                results.option.?.deinit();
-                results.option = null;
-            }
+        }
+        defer {
+            if(results.option.?.count() == 0) { results.option.?.deinit(); }
         }
 
         var i: usize = 1;
