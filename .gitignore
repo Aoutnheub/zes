@@ -1,2 +1,2 @@
-args/zig-cache
-args/zig-out
+**/zig-cache
+**/zig-out
