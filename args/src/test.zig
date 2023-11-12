@@ -1,5 +1,5 @@
 const std = @import("std");
-const args = @import("./main.zig");
+const args = @import("args");
 
 test "duplicate flag" {
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");

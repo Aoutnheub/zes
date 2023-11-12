@@ -6,7 +6,7 @@ Command line argument parser.
 
 ```zig
 const std = @import("std");
-const args = @import("args.zig");
+const args = @import("args");
 
 pub fn main() !void {
     var parser = args.Parser.init(std.heap.page_allocator, "hi", "Say hi");

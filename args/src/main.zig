@@ -58,10 +58,10 @@ pub const Results = struct {
     command: ?[]u8 = null,
 
     pub fn deinit(self: *Results) void {
-        if(self.flag != null) { self.flag.?.deinit(); }
-        if(self.option != null) { self.option.?.deinit(); }
-        if(self.positional != null) { self.positional.?.deinit(); }
-        if(self.command != null) { self.allocator.free(self.command.?); }
+        if(self.flag) |flag| { flag.deinit(); }
+        if(self.option) |option| { option.deinit(); }
+        if(self.positional) |positional| { positional.deinit(); }
+        if(self.command) |command| { self.allocator.free(command); }
     }
 };
 
@@ -76,17 +76,6 @@ pub const Parser = struct {
         DuplicateArgument
     } || std.mem.Allocator.Error || std.fmt.BufPrintError;
 
-    // Everything with _ at the start is internal stuff.
-    // Changing values manually may cause pain, bleeding or even death
-    _flags: std.hash_map.StringHashMap([]const u8),
-    _flags_abbr: std.array_hash_map.AutoArrayHashMap(u8, []const u8),
-    _options: std.hash_map.StringHashMap(Option),
-    _options_abbr: std.array_hash_map.AutoArrayHashMap(u8, []const u8),
-    _commands: std.hash_map.StringHashMap([]const u8),
-    _name: []const u8,
-    _description: []const u8,
-    // Error messages
-    _err_buf: [1024]u8 = undefined,
     err: ?[]const u8 = null,
     /// Allocator
     allocator: std.mem.Allocator,
@@ -121,6 +110,17 @@ pub const Parser = struct {
     option_description_color: ANSICode = ANSIWhite,
     /// Color of the option's allowed values outputed by the `help` function
     option_allowed_color: ANSICode = ANSIYellow,
+    // Everything with _ at the start is internal stuff.
+    // Changing values manually may cause pain, bleeding or even death
+    _flags: std.hash_map.StringHashMap([]const u8),
+    _flags_abbr: std.array_hash_map.AutoArrayHashMap(u8, []const u8),
+    _options: std.hash_map.StringHashMap(Option),
+    _options_abbr: std.array_hash_map.AutoArrayHashMap(u8, []const u8),
+    _commands: std.hash_map.StringHashMap([]const u8),
+    _name: []const u8,
+    _description: []const u8,
+    // Error messages
+    _err_buf: [1024]u8 = undefined,
 
     pub fn init(allocator: std.mem.Allocator, name: []const u8, description: []const u8) Parser {
         return Parser{
@@ -147,7 +147,6 @@ pub const Parser = struct {
     /// @param name flag's name
     /// @param help flag's description
     /// @param abbr flag's abbreviation
-    /// @return error or void
     /// Error types:
     ///     - DuplicateArgument `err` field contains the duplicate argument
     ///     - Allocator.Error
