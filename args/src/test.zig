@@ -6,7 +6,7 @@ test "duplicate flag" {
     try parser.addFlag("flag", "desc", null);
     var errored = false;
     parser.addFlag("flag", "desc", null) catch |err| {
-        try std.testing.expect(err == args.ParserError.DuplicateArgument);
+        try std.testing.expect(err == error.DuplicateArgument);
         try std.testing.expectEqualStrings("flag", parser.err.?);
         errored =  true;
     };
@@ -18,7 +18,7 @@ test "duplicate option" {
     try parser.addOption("opt", "desc", null, "", null);
     var errored = false;
     parser.addOption("opt", "desc", null, "", null) catch |err| {
-        try std.testing.expect(err == args.ParserError.DuplicateArgument);
+        try std.testing.expect(err == error.DuplicateArgument);
         try std.testing.expectEqualStrings("opt", parser.err.?);
         errored = true;
     };
@@ -30,7 +30,7 @@ test "duplicate command" {
     try parser.addCommand("cmd", "desc");
     var errored = false;
     parser.addCommand("cmd", "desc") catch |err| {
-        try std.testing.expect(err == args.ParserError.DuplicateArgument);
+        try std.testing.expect(err == error.DuplicateArgument);
         try std.testing.expectEqualStrings("cmd", parser.err.?);
         errored = true;
     };
@@ -44,7 +44,7 @@ test "invalid argument" {
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
     var errored = false;
     _ = parser.parse(&a) catch |err| {
-        try std.testing.expect(err == args.ParserError.InvalidArgument);
+        try std.testing.expect(err == error.InvalidArgument);
         try std.testing.expectEqualStrings("arg", parser.err.?);
         errored = true;
     };
@@ -62,7 +62,7 @@ test "invalid value" {
     try parser.addOption("arg", "Test", null, "no", allowed);
     var errored = false;
     _ = parser.parse(&a) catch |err| {
-        try std.testing.expect(err == args.ParserError.InvalidValue);
+        try std.testing.expect(err == error.InvalidValue);
         try std.testing.expectEqualStrings("arg", parser.err.?);
         errored = true;
     };
@@ -77,7 +77,7 @@ test "missing value" {
     try parser.addOption("arg", "Test", null, "", null);
     var errored = false;
     _ = parser.parse(&a) catch |err| {
-        try std.testing.expect(err == args.ParserError.MissingValue);
+        try std.testing.expect(err == error.MissingValue);
         try std.testing.expectEqualStrings("arg", parser.err.?);
         errored = true;
     };
@@ -139,7 +139,7 @@ test "missing command" {
 
     var errored = false;
     _ = parser.parse(&a) catch |err| {
-        try std.testing.expect(err == args.ParserError.InvalidArgument);
+        try std.testing.expect(err == error.InvalidArgument);
         errored = true;
     };
     try std.testing.expect(errored);

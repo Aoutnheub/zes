@@ -65,24 +65,17 @@ pub const Results = struct {
     }
 };
 
-const Option = struct {
-    help: []const u8 = "",
-    defaults_to: ?[]const u8 = "",
-    allowed: ?std.ArrayList([]const u8) = null,
-
-    pub fn deinit(self: *Option) void {
-        self.allowed.deinit();
-    }
-};
-
-pub const ParserError = error{
-    DuplicateArgument,
-    InvalidArgument,
-    InvalidValue,
-    MissingValue
-};
-
 pub const Parser = struct {
+    pub const ParseError = error {
+        InvalidArgument,
+        InvalidValue,
+        MissingValue,
+    } || std.mem.Allocator.Error || std.fmt.BufPrintError;
+
+    pub const ArgError = error {
+        DuplicateArgument
+    } || std.mem.Allocator.Error || std.fmt.BufPrintError;
+
     // Everything with _ at the start is internal stuff.
     // Changing values manually may cause pain, bleeding or even death
     _flags: std.hash_map.StringHashMap([]const u8),
@@ -93,84 +86,41 @@ pub const Parser = struct {
     _name: []const u8,
     _description: []const u8,
     // Error messages
-    _err_buf: [1024]u8,
-    err: ?[]const u8,
+    _err_buf: [1024]u8 = undefined,
+    err: ?[]const u8 = null,
     /// Allocator
     allocator: std.mem.Allocator,
     /// Return an error if the first argument isn't a command. Ignored if no
     /// commands have been added
-    command_required: bool,
+    command_required: bool = false,
     /// Header displayed by the `help` function before the command descriptions
-    commands_help_msg: []const u8,
+    commands_help_msg: []const u8 = "COMMANDS",
     /// Header displayed by the `help` function before the flag descriptions
-    flags_help_msg: []const u8,
+    flags_help_msg: []const u8 = "FLAGS",
     /// Header displayed by the `help` function before the option descriptions
-    options_help_msg: []const u8,
+    options_help_msg: []const u8 = "OPTIONS",
     /// Color the output of the `help` function
-    colors: bool,
+    colors: bool = false,
     /// Color of the title outputed by the `help` function
-    title_color: ANSICode,
+    title_color: ANSICode = ANSIGreen,
     /// Color of the description outputed by the `help` function
-    description_color: ANSICode,
+    description_color: ANSICode = ANSIWhite,
     /// Color of the headers outputed by the `help` function
-    header_color: ANSICode,
+    header_color: ANSICode = ANSIRed,
     /// Color of the command names outputed by the `help` function
-    command_color: ANSICode,
+    command_color: ANSICode = ANSIMagenta,
     /// Color of the command's description outputed by the `help` function
-    command_description_color: ANSICode,
+    command_description_color: ANSICode = ANSIWhite,
     /// Color of the flag names outputed by the `help` function
-    flag_color: ANSICode,
+    flag_color: ANSICode = ANSIBlue,
     /// Color of the flag's description outputed by the `help` function
-    flag_description_color: ANSICode,
+    flag_description_color: ANSICode = ANSIWhite,
     /// Color of the option names outputed by the `help` function
-    option_color: ANSICode,
+    option_color: ANSICode = ANSIBlue,
     /// Color of the option's description outputed by the `help` function
-    option_description_color: ANSICode,
+    option_description_color: ANSICode = ANSIWhite,
     /// Color of the option's allowed values outputed by the `help` function
-    option_allowed_color: ANSICode,
-
-    fn getFlagsAbbr(self: *Parser) !std.array_hash_map.StringArrayHashMap(u8) {
-        var abbr = std.array_hash_map.StringArrayHashMap(u8).init(self.allocator);
-        var flags_abbr_iter = self._flags_abbr.iterator();
-        while(flags_abbr_iter.next()) |entry| {
-            try abbr.put(entry.value_ptr.*, entry.key_ptr.*);
-        }
-
-        return abbr;
-    }
-
-    fn getOptionsAbbr(self: *Parser) !std.array_hash_map.StringArrayHashMap(u8) {
-        var abbr = std.array_hash_map.StringArrayHashMap(u8).init(self.allocator);
-        var options_abbr_iter = self._options_abbr.iterator();
-        while(options_abbr_iter.next()) |entry| {
-            try abbr.put(entry.value_ptr.*, entry.key_ptr.*);
-        }
-
-        return abbr;
-    }
-
-    fn isAllowedOptionValue(self: Parser, opt: []const u8, val: []const u8) bool {
-        var option = self._options.get(opt);
-        var allowed = false;
-        if(option) |op| {
-            if(op.allowed) |alw| {
-                if(alw.items.len != 0) {
-                    for(alw.items) |itm| {
-                        if(std.mem.eql(u8, itm, val)) {
-                            allowed = true;
-                            break;
-                        }
-                    }
-                } else {
-                    allowed = true;
-                }
-            } else {
-                return true;
-            }
-        }
-
-        return allowed;
-    }
+    option_allowed_color: ANSICode = ANSIYellow,
 
     pub fn init(allocator: std.mem.Allocator, name: []const u8, description: []const u8) Parser {
         return Parser{
@@ -181,24 +131,7 @@ pub const Parser = struct {
             ._options = std.hash_map.StringHashMap(Option).init(allocator),
             ._options_abbr = std.array_hash_map.AutoArrayHashMap(u8, []const u8).init(allocator),
             ._commands = std.hash_map.StringHashMap([]const u8).init(allocator),
-            ._err_buf = undefined,
-            .err = null,
-            .allocator = allocator,
-            .command_required = false,
-            .commands_help_msg = "COMMANDS",
-            .flags_help_msg = "FLAGS",
-            .options_help_msg = "OPTIONS",
-            .colors = false,
-            .title_color = ANSIGreen,
-            .description_color = ANSIWhite,
-            .header_color = ANSIRed,
-            .command_color = ANSIMagenta,
-            .command_description_color = ANSIWhite,
-            .flag_color = ANSIBlue,
-            .flag_description_color = ANSIWhite,
-            .option_color = ANSIBlue,
-            .option_description_color = ANSIWhite,
-            .option_allowed_color = ANSIYellow,
+            .allocator = allocator
         };
     }
 
@@ -213,17 +146,13 @@ pub const Parser = struct {
     /// Add a flag
     /// @param name flag's name
     /// @param help flag's description
-    /// @param abbr (optional) flag's abbreviation
+    /// @param abbr flag's abbreviation
     /// @return error or void
-    ///     Error types:
-    ///         - ParserError.DuplicateArgument (.err field contains the duplicate argument)
-    ///         - Allocator.Error
-    pub fn addFlag(
-        self: *Parser,
-        comptime name: []const u8,
-        comptime help_: []const u8,
-        comptime abbr: ?u8
-    ) !void {
+    /// Error types:
+    ///     - DuplicateArgument `err` field contains the duplicate argument
+    ///     - Allocator.Error
+    ///     - BufPrintError
+    pub fn addFlag(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8) ArgError!void {
         if(!self._flags.contains(name) and !self._options.contains(name)) {
             if(abbr) |ab| {
                 if(!self._flags_abbr.contains(ab) and !self._options_abbr.contains(ab)) {
@@ -231,28 +160,31 @@ pub const Parser = struct {
                     try self._flags_abbr.put(ab, name);
                 } else {
                     self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ ab });
-                    return ParserError.DuplicateArgument;
+                    return ArgError.DuplicateArgument;
                 }
             } else {
                 try self._flags.put(name, help_);
             }
         } else {
             self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ name });
-            return ParserError.DuplicateArgument;
+            return ArgError.DuplicateArgument;
         }
     }
 
     /// Add an option
     /// @param name option's name
     /// @param help option's description
-    /// @param abbr (optional) option's abbreviation
-    /// @param defaultsTo option's default value
-    /// @param allowed (optional) option's allowed values. Doesn't necessarily need to contain the default value
-    /// @return error or void
-    ///     Error types:
-    ///         - ParserError.DuplicateArgument (.err field contains the duplicate argument)
-    ///         - Allocator.Error
-    pub fn addOption(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8, defaults_to: ?[]const u8, allowed: ?std.ArrayList([]const u8)) !void {
+    /// @param abbr option's abbreviation
+    /// @param defaults_to option's default value
+    /// @param allowed option's allowed values. Doesn't necessarily need to contain the default value
+    /// Error types:
+    ///     - DuplicateArgument `err` field contains the duplicate argument
+    ///     - Allocator.Error
+    ///     - BufPrintError
+    pub fn addOption(
+        self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8,
+        defaults_to: ?[]const u8, allowed: ?std.ArrayList([]const u8)
+    ) ArgError!void {
         if(!self._flags.contains(name) and !self._options.contains(name)) {
             if(abbr) |ab| {
                 if(!self._flags_abbr.contains(ab) and !self._options_abbr.contains(ab)) {
@@ -260,35 +192,34 @@ pub const Parser = struct {
                     try self._options_abbr.put(ab, name);
                 } else {
                     self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ ab });
-                    return ParserError.DuplicateArgument;
+                    return ArgError.DuplicateArgument;
                 }
             } else {
                 try self._options.put(name, Option{ .help = help_, .defaults_to = defaults_to, .allowed = allowed });
             }
         } else {
             self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ name });
-            return ParserError.DuplicateArgument;
+            return ArgError.DuplicateArgument;
         }
     }
 
     /// Add a command
     /// @param name command's name
     /// @param help command's description
-    /// @return error or void
-    ///     Error types:
-    ///         - ParserError.DuplicateArgument (.err field contains the duplicate argument)
-    ///         - Allocator.Error
-    pub fn addCommand(self: *Parser, name: []const u8, help_: []const u8) !void {
+    /// Error types:
+    ///     - DuplicateArgument `err` field contains the duplicate argument
+    ///     - Allocator.Error
+    ///     - BufPrintError
+    pub fn addCommand(self: *Parser, name: []const u8, help_: []const u8) ArgError!void {
         if(!self._commands.contains(name)) {
             try self._commands.put(name, help_);
         } else {
             self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ name });
-            return ParserError.DuplicateArgument;
+            return ArgError.DuplicateArgument;
         }
     }
 
     /// Display the help message
-    /// @return error or void
     pub fn help(self: *Parser) !void {
         var buf_writer = std.io.bufferedWriter(std.io.getStdOut().writer());
         const stdout = buf_writer.writer();
@@ -419,13 +350,14 @@ pub const Parser = struct {
     }
 
     /// Parse the command line arguments
-    /// @return A `Results` type with the parsed arguments or error
-    ///     Error types:
-    ///         - ParserError.InvalidArgument (.err field contains the invalid argument)
-    ///         - ParserError.InvalidValue (.err field contains the option with an invalid value)
-    ///         - ParserError.MissingValue (.err field contains the option missing a value)
-    ///         - Allocator.Error
-    pub fn parse(self: *Parser, args: [][:0]u8) !Results {
+    /// @param args arguments
+    /// Error types:
+    ///     - ParseError.InvalidArgument `err` field contains the invalid argument
+    ///     - ParseError.InvalidValue `err` field contains the option with an invalid value
+    ///     - ParseError.MissingValue `err` field contains the option missing a value
+    ///     - Allocator.Error
+    ///     - BufPrintError
+    pub fn parse(self: *Parser, args: [][:0]u8) ParseError!Results {
         var results = Results{
             .allocator = self.allocator,
             .flag = null,
@@ -463,7 +395,7 @@ pub const Parser = struct {
                 } else {
                     if(self.command_required) {
                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ args[i] });
-                        return ParserError.InvalidArgument;
+                        return ParseError.InvalidArgument;
                     }
                 }
                 skip_command_check = true;
@@ -488,11 +420,11 @@ pub const Parser = struct {
                                                 i += 1;
                                             } else {
                                                 self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
-                                                return ParserError.InvalidValue;
+                                                return ParseError.InvalidValue;
                                             }
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
-                                            return ParserError.MissingValue;
+                                            return ParseError.MissingValue;
                                         }
                                     }
                                 } else { // multiple flags and one option
@@ -503,7 +435,7 @@ pub const Parser = struct {
                                             try results.flag.?.put(fl.?, true);
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
-                                            return ParserError.InvalidArgument;
+                                            return ParseError.InvalidArgument;
                                         }
                                         ii += 1;
                                     }
@@ -515,12 +447,12 @@ pub const Parser = struct {
                                                 try results.option.?.put(op.?, tmp);
                                             } else {
                                                 self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
-                                                return ParserError.MissingValue;
+                                                return ParseError.MissingValue;
                                             }
                                         }
                                     } else {
                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
-                                        return ParserError.MissingValue;
+                                        return ParseError.MissingValue;
                                     }
                                     i += 1;
                                 }
@@ -532,7 +464,7 @@ pub const Parser = struct {
                                         try results.option.?.put(op.?, tmp);
                                     } else {
                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
-                                        return ParserError.MissingValue;
+                                        return ParseError.MissingValue;
                                     }
                                 } else { // multiple flags
                                     var ii: usize = 1;
@@ -542,7 +474,7 @@ pub const Parser = struct {
                                             try results.flag.?.put(fl.?, true);
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
-                                            return ParserError.InvalidArgument;
+                                            return ParseError.InvalidArgument;
                                         }
                                         ii += 1;
                                     }
@@ -558,13 +490,13 @@ pub const Parser = struct {
                                     val = args[i][equals.? + 1..];
                                 } else {
                                     self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
-                                    return ParserError.MissingValue;
+                                    return ParseError.MissingValue;
                                 }
                                 if(self.isAllowedOptionValue(op, val)) {
                                     try results.option.?.put(op, val);
                                 } else {
                                     self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
-                                    return ParserError.InvalidValue;
+                                    return ParseError.InvalidValue;
                                 }
                                 i += 1;
                             } else {
@@ -583,21 +515,21 @@ pub const Parser = struct {
                                                         try results.option.?.put(arg, args[i + 1]);
                                                     } else {
                                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ arg });
-                                                        return ParserError.InvalidValue;
+                                                        return ParseError.InvalidValue;
                                                     }
                                                 } else {
                                                     self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ arg });
-                                                    return ParserError.MissingValue;
+                                                    return ParseError.MissingValue;
                                                 }
                                             }
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ arg });
-                                            return ParserError.MissingValue;
+                                            return ParseError.MissingValue;
                                         }
                                         i += 2;
                                     } else {
                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ arg });
-                                        return ParserError.InvalidArgument;
+                                        return ParseError.InvalidArgument;
                                     }
                                 }
                             }
@@ -622,17 +554,17 @@ pub const Parser = struct {
                                                 try results.option.?.put(op.?, args[i + 1]);
                                             } else {
                                                 self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
-                                                return ParserError.MissingValue;
+                                                return ParseError.MissingValue;
                                             }
                                         }
                                     } else {
                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
-                                        return ParserError.MissingValue;
+                                        return ParseError.MissingValue;
                                     }
                                     i += 2;
                                 } else {
                                     self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][1] });
-                                    return ParserError.InvalidArgument;
+                                    return ParseError.InvalidArgument;
                                 }
                             }
                         } else {
@@ -654,5 +586,57 @@ pub const Parser = struct {
 
         return results;
     }
+
+    fn getFlagsAbbr(self: *Parser) !std.array_hash_map.StringArrayHashMap(u8) {
+        var abbr = std.array_hash_map.StringArrayHashMap(u8).init(self.allocator);
+        var flags_abbr_iter = self._flags_abbr.iterator();
+        while(flags_abbr_iter.next()) |entry| {
+            try abbr.put(entry.value_ptr.*, entry.key_ptr.*);
+        }
+
+        return abbr;
+    }
+
+    fn getOptionsAbbr(self: *Parser) !std.array_hash_map.StringArrayHashMap(u8) {
+        var abbr = std.array_hash_map.StringArrayHashMap(u8).init(self.allocator);
+        var options_abbr_iter = self._options_abbr.iterator();
+        while(options_abbr_iter.next()) |entry| {
+            try abbr.put(entry.value_ptr.*, entry.key_ptr.*);
+        }
+
+        return abbr;
+    }
+
+    fn isAllowedOptionValue(self: Parser, opt: []const u8, val: []const u8) bool {
+        var option = self._options.get(opt);
+        var allowed = false;
+        if(option) |op| {
+            if(op.allowed) |alw| {
+                if(alw.items.len != 0) {
+                    for(alw.items) |itm| {
+                        if(std.mem.eql(u8, itm, val)) {
+                            allowed = true;
+                            break;
+                        }
+                    }
+                } else {
+                    allowed = true;
+                }
+            } else {
+                return true;
+            }
+        }
+
+        return allowed;
+    }
 };
 
+const Option = struct {
+    help: []const u8 = "",
+    defaults_to: ?[]const u8 = "",
+    allowed: ?std.ArrayList([]const u8) = null,
+
+    pub fn deinit(self: *Option) void {
+        self.allowed.deinit();
+    }
+};
