@@ -1,3 +1,27 @@
+/// MIT License
+
+/// Copyright (c) 2023 Aoutnheub
+
+/// Permission is hereby granted, free of charge, to any person obtaining a copy
+/// of this software and associated documentation files (the "Software"), to deal
+/// in the Software without restriction, including without limitation the rights
+/// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+/// copies of the Software, and to permit persons to whom the Software is
+/// furnished to do so, subject to the following conditions:
+
+/// The above copyright notice and this permission notice shall be included in all
+/// copies or substantial portions of the Software.
+
+/// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+/// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+/// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+/// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+/// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+/// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+/// SOFTWARE.
+
+/// Tested on Zig version: 0.11.0
+
 const std = @import("std");
 
 const Self = @This();
@@ -130,28 +154,28 @@ pub const Response = struct {
         self.cookies.deinit();
     }
 
-    /// Wait for the client to send a complete request head.
+    /// Wait for the client to send a complete request head
     pub fn wait(self: *Response) std.http.Server.Response.WaitError!void {
         return self.res.wait();
     }
 
-    /// Send the response headers.
+    /// Send the response headers
     pub fn do(self: *Response) !void {
         return self.res.do();
     }
 
-    /// Write bytes to the server. The transfer_encoding request header determines how data will be sent.
+    /// Write bytes to the server. The transfer_encoding request header determines how data will be sent
     pub fn write(self: *Response, bytes: []const u8) std.http.Server.Response.WriteError!usize {
         return self.res.write(bytes);
     }
 
-    /// Finish the body of the request. This notifies the server that you have no more data to send.
+    /// Finish the body of the request. This notifies the server that you have no more data to send
     pub fn finish(self: *Response) std.http.Server.Response.FinishError!void {
         return self.res.finish();
     }
 
     /// Reset the underlying response to its initial state. This must be called before
-    /// handling a second request on the same connection.
+    /// handling a second request on the same connection
     pub fn reset(self: *Response) std.http.Server.Response.ResetState {
         return self.res.reset();
     }
@@ -243,7 +267,7 @@ pub const Response = struct {
     }
 
     /// Read the body of the request
-    /// .max_body_size sets the maximum amount of bytes to read
+    /// `max_body_size` sets the maximum amount of bytes to read
     /// @param alloc allocator for the buffer
     pub fn readAllAlloc(self: *Response, alloc: std.mem.Allocator) ![]u8 {
         return self.res.reader().readAllAlloc(alloc, self.max_body_size);
