@@ -3,9 +3,9 @@ const args = @import("args");
 
 test "duplicate flag" {
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
-    try parser.addFlag("flag", "desc", null);
+    try parser.flag("flag", "desc", null);
     var errored = false;
-    parser.addFlag("flag", "desc", null) catch |err| {
+    parser.flag("flag", "desc", null) catch |err| {
         try std.testing.expect(err == error.DuplicateArgument);
         try std.testing.expectEqualStrings("flag", parser.err.?);
         errored =  true;
@@ -15,9 +15,9 @@ test "duplicate flag" {
 
 test "duplicate option" {
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
-    try parser.addOption("opt", "desc", null, "", null);
+    try parser.option("opt", "desc", null, "", null);
     var errored = false;
-    parser.addOption("opt", "desc", null, "", null) catch |err| {
+    parser.option("opt", "desc", null, "", null) catch |err| {
         try std.testing.expect(err == error.DuplicateArgument);
         try std.testing.expectEqualStrings("opt", parser.err.?);
         errored = true;
@@ -27,9 +27,9 @@ test "duplicate option" {
 
 test "duplicate command" {
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
-    try parser.addCommand("cmd", "desc");
+    try parser.command("cmd", "desc");
     var errored = false;
-    parser.addCommand("cmd", "desc") catch |err| {
+    parser.command("cmd", "desc") catch |err| {
         try std.testing.expect(err == error.DuplicateArgument);
         try std.testing.expectEqualStrings("cmd", parser.err.?);
         errored = true;
@@ -59,7 +59,7 @@ test "invalid value" {
     var allowed = std.ArrayList([]const u8).init(std.heap.page_allocator);
     try allowed.append("yes");
     try allowed.append("no");
-    try parser.addOption("arg", "Test", null, "no", allowed);
+    try parser.option("arg", "Test", null, "no", allowed);
     var errored = false;
     _ = parser.parse(&a) catch |err| {
         try std.testing.expect(err == error.InvalidValue);
@@ -74,7 +74,7 @@ test "missing value" {
     std.mem.copy(u8, &astr, "exe\x00 --arg\x00");
     var a: [2][:0]u8 = .{ astr[0..3:0], astr[5..10:0] };
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
-    try parser.addOption("arg", "Test", null, "", null);
+    try parser.option("arg", "Test", null, "", null);
     var errored = false;
     _ = parser.parse(&a) catch |err| {
         try std.testing.expect(err == error.MissingValue);
@@ -92,23 +92,23 @@ test "parse" {
         astr[20..24:0], astr[26..33:0], astr[35..42:0]
     };
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
-    try parser.addOption("op", "Test", null, "", null);
-    try parser.addOption("op2", "Test", 'O', "5", null);
-    try parser.addOption("op3", "Test", null, null, null);
-    try parser.addFlag("flag", "Test", 'f');
-    try parser.addFlag("xflag", "Test", 'x');
-    try parser.addFlag("yflag", "Test", 'y');
-    try parser.addFlag("zflag", "Test", 'z');
-    try parser.addFlag("no-flag", "Test", null);
+    try parser.option("op", "Test", null, "", null);
+    try parser.option("op2", "Test", 'O', "5", null);
+    try parser.option("op3", "Test", null, null, null);
+    try parser.flag("flag", "Test", 'f');
+    try parser.flag("xflag", "Test", 'x');
+    try parser.flag("yflag", "Test", 'y');
+    try parser.flag("zflag", "Test", 'z');
+    try parser.flag("no-flag", "Test", null);
 
     var results = try parser.parse(&a);
-    try std.testing.expectEqualStrings("test", results.option.?.get("op").?);
-    try std.testing.expectEqualStrings("10", results.option.?.get("op2").?);
-    try std.testing.expect(results.option.?.get("op3") == null);
-    try std.testing.expect(results.flag.?.get("flag").?);
-    try std.testing.expect(results.flag.?.get("xflag").?);
-    try std.testing.expect(results.flag.?.get("yflag").?);
-    try std.testing.expect(results.flag.?.get("zflag").?);
+    try std.testing.expectEqualStrings("test", results.option("op").?);
+    try std.testing.expectEqualStrings("10", results.option("op2").?);
+    try std.testing.expect(results.option("op3") == null);
+    try std.testing.expect(results.flag("flag"));
+    try std.testing.expect(results.flag("xflag"));
+    try std.testing.expect(results.flag("yflag"));
+    try std.testing.expect(results.flag("zflag"));
     try std.testing.expectEqualStrings("TEST", results.positional.?.items[0]);
 }
 
@@ -120,7 +120,7 @@ test "command" {
     };
 
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
-    try parser.addCommand("command", "Test");
+    try parser.command("command", "Test");
 
     var results = try parser.parse(&a);
     try std.testing.expectEqualStrings("command", results.command.?);
@@ -135,7 +135,7 @@ test "missing command" {
 
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
     parser.command_required = true;
-    try parser.addCommand("cmd", "Test");
+    try parser.command("cmd", "Test");
 
     var errored = false;
     _ = parser.parse(&a) catch |err| {

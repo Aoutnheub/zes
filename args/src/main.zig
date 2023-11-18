@@ -47,21 +47,39 @@ pub const ANSIBGCyan: ANSICode = "\x1b[46m";
 pub const ANSIBGWhite: ANSICode = "\x1b[47m";
 
 pub const Results = struct {
+    const Self = @This();
+
     allocator: std.mem.Allocator,
     /// Stores flag values after parsing
-    flag: ?std.hash_map.StringHashMap(bool) = null,
+    flags: ?std.hash_map.StringHashMap(bool) = null,
     /// Stores option values after parsing
-    option: ?std.hash_map.StringHashMap([]const u8) = null,
+    options: ?std.hash_map.StringHashMap([]const u8) = null,
     /// Stores positional arguments after parsing
     positional: ?std.ArrayList([]const u8) = null,
     /// Stores the command after parsing
     command: ?[]u8 = null,
 
-    pub fn deinit(self: *Results) void {
-        if(self.flag) |flag| { flag.deinit(); }
-        if(self.option) |option| { option.deinit(); }
+    pub fn deinit(self: *Self) void {
+        if(self.flags) |flag_| { flag_.deinit(); }
+        if(self.options) |option_| { option_.deinit(); }
         if(self.positional) |positional| { positional.deinit(); }
         if(self.command) |command| { self.allocator.free(command); }
+    }
+
+    pub fn flag(self: *Self, name: []const u8) bool {
+        if(self.flags) |flags| {
+            if(flags.get(name)) |flag_| { return flag_; }
+        }
+
+        return false;
+    }
+
+    pub fn option(self: *Self, name: []const u8) ?[]const u8 {
+        if(self.options) |options| {
+            return options.get(name);
+        }
+
+        return null;
     }
 };
 
@@ -151,7 +169,7 @@ pub const Parser = struct {
     ///     - DuplicateArgument `err` field contains the duplicate argument
     ///     - Allocator.Error
     ///     - BufPrintError
-    pub fn addFlag(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8) ArgError!void {
+    pub fn flag(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8) ArgError!void {
         if(!self._flags.contains(name) and !self._options.contains(name)) {
             if(abbr) |ab| {
                 if(!self._flags_abbr.contains(ab) and !self._options_abbr.contains(ab)) {
@@ -180,7 +198,7 @@ pub const Parser = struct {
     ///     - DuplicateArgument `err` field contains the duplicate argument
     ///     - Allocator.Error
     ///     - BufPrintError
-    pub fn addOption(
+    pub fn option(
         self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8,
         defaults_to: ?[]const u8, allowed: ?std.ArrayList([]const u8)
     ) ArgError!void {
@@ -209,7 +227,7 @@ pub const Parser = struct {
     ///     - DuplicateArgument `err` field contains the duplicate argument
     ///     - Allocator.Error
     ///     - BufPrintError
-    pub fn addCommand(self: *Parser, name: []const u8, help_: []const u8) ArgError!void {
+    pub fn command(self: *Parser, name: []const u8, help_: []const u8) ArgError!void {
         if(!self._commands.contains(name)) {
             try self._commands.put(name, help_);
         } else {
@@ -359,26 +377,26 @@ pub const Parser = struct {
     pub fn parse(self: *Parser, args: [][:0]u8) ParseError!Results {
         var results = Results{
             .allocator = self.allocator,
-            .flag = null,
-            .option = null,
+            .flags = null,
+            .options = null,
             .positional = std.ArrayList([]const u8).init(self.allocator),
             .command = null,
         };
         if(self._flags.count() != 0) {
-            results.flag = std.hash_map.StringHashMap(bool).init(self.allocator);
+            results.flags = std.hash_map.StringHashMap(bool).init(self.allocator);
         }
         if(self._options.count() != 0) {
-            results.option = std.hash_map.StringHashMap([]const u8).init(self.allocator);
+            results.options = std.hash_map.StringHashMap([]const u8).init(self.allocator);
             var iter = self._options.iterator();
             while(iter.next()) |entry| {
                 if(entry.value_ptr.*.defaults_to != null) {
-                    try results.option.?.put(entry.key_ptr.*, entry.value_ptr.*.defaults_to.?);
+                    try results.options.?.put(entry.key_ptr.*, entry.value_ptr.*.defaults_to.?);
                 }
             }
         }
         defer {
-            if(self._options.count() != 0 and results.option.?.count() == 0) {
-                results.option.?.deinit();
+            if(self._options.count() != 0 and results.options.?.count() == 0) {
+                results.options.?.deinit();
             }
         }
 
@@ -415,7 +433,7 @@ pub const Parser = struct {
                                         if(args[i].len > 3) {
                                             var tmp = args[i][3..];
                                             if(self.isAllowedOptionValue(op.?, tmp)) {
-                                                try results.option.?.put(op.?, tmp);
+                                                try results.options.?.put(op.?, tmp);
                                                 i += 1;
                                             } else {
                                                 self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
@@ -431,7 +449,7 @@ pub const Parser = struct {
                                     while(ii < equals.? - 1) {
                                         var fl = self._flags_abbr.get(args[i][ii]);
                                         if(fl != null) {
-                                            try results.flag.?.put(fl.?, true);
+                                            try results.flags.?.put(fl.?, true);
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
                                             return ParseError.InvalidArgument;
@@ -443,7 +461,7 @@ pub const Parser = struct {
                                         if(op != null) {
                                             var tmp = args[i][equals.? + 1..];
                                             if(self.isAllowedOptionValue(op.?, tmp)) {
-                                                try results.option.?.put(op.?, tmp);
+                                                try results.options.?.put(op.?, tmp);
                                             } else {
                                                 self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
                                                 return ParseError.MissingValue;
@@ -460,7 +478,7 @@ pub const Parser = struct {
                                 if(op != null) {
                                     var tmp = args[i][2..];
                                     if(self.isAllowedOptionValue(op.?, tmp)) {
-                                        try results.option.?.put(op.?, tmp);
+                                        try results.options.?.put(op.?, tmp);
                                     } else {
                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
                                         return ParseError.MissingValue;
@@ -470,7 +488,7 @@ pub const Parser = struct {
                                     while(ii < args[i].len) {
                                         var fl = self._flags_abbr.get(args[i][ii]);
                                         if(fl != null) {
-                                            try results.flag.?.put(fl.?, true);
+                                            try results.flags.?.put(fl.?, true);
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
                                             return ParseError.InvalidArgument;
@@ -492,7 +510,7 @@ pub const Parser = struct {
                                     return ParseError.MissingValue;
                                 }
                                 if(self.isAllowedOptionValue(op, val)) {
-                                    try results.option.?.put(op, val);
+                                    try results.options.?.put(op, val);
                                 } else {
                                     self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                     return ParseError.InvalidValue;
@@ -501,17 +519,17 @@ pub const Parser = struct {
                             } else {
                                 var arg = args[i][2..];
                                 if(self._flags.contains(arg)) {
-                                    try results.flag.?.put(arg, true);
+                                    try results.flags.?.put(arg, true);
                                     i += 1;
                                 } else {
                                     if(self._options.contains(arg)) {
                                         if(i + 1 < args.len) {
                                             if(args[i + 1].len == 0) {
-                                                try results.option.?.put(arg, args[i + 1]);
+                                                try results.options.?.put(arg, args[i + 1]);
                                             } else {
                                                 if(args[i + 1][0] != '-') {
                                                     if(self.isAllowedOptionValue(arg, args[i + 1])) {
-                                                        try results.option.?.put(arg, args[i + 1]);
+                                                        try results.options.?.put(arg, args[i + 1]);
                                                     } else {
                                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ arg });
                                                         return ParseError.InvalidValue;
@@ -540,17 +558,17 @@ pub const Parser = struct {
                         if(args[i][0] == '-') {
                             var fl = self._flags_abbr.get(args[i][1]);
                             if(fl != null) {
-                                try results.flag.?.put(fl.?, true);
+                                try results.flags.?.put(fl.?, true);
                                 i += 1;
                             } else {
                                 var op = self._options_abbr.get(args[i][1]);
                                 if(op != null) {
                                     if(i + 1 < args.len) {
                                         if(args[i + 1].len == 0) {
-                                            try results.option.?.put(op.?, args[i + 1]);
+                                            try results.options.?.put(op.?, args[i + 1]);
                                         } else {
                                             if(args[i + 1][0] != '-') {
-                                                try results.option.?.put(op.?, args[i + 1]);
+                                                try results.options.?.put(op.?, args[i + 1]);
                                             } else {
                                                 self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
                                                 return ParseError.MissingValue;
@@ -607,9 +625,9 @@ pub const Parser = struct {
     }
 
     fn isAllowedOptionValue(self: Parser, opt: []const u8, val: []const u8) bool {
-        var option = self._options.get(opt);
+        var option_ = self._options.get(opt);
         var allowed = false;
-        if(option) |op| {
+        if(option_) |op| {
             if(op.allowed) |alw| {
                 if(alw.items.len != 0) {
                     for(alw.items) |itm| {
