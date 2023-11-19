@@ -390,6 +390,33 @@ pub fn addHandler(
     try self._handlers.append(h);
 }
 
+/// Server a static file
+/// @param path root URL path
+/// @param file file path
+pub fn static(self: *Self, comptime path: []const u8, comptime file: []const u8) !void {
+    const func = struct {
+        fn serverFile(res: *Response) !void {
+            var f = try std.fs.cwd().openFile(file, .{});
+            defer f.close();
+            var content = try f.readToEndAlloc(std.heap.page_allocator, 8_000_000);
+            defer std.heap.page_allocator.free(content);
+            try res.send(.ok, content);
+        }
+    };
+    comptime var file_name: []const u8 = undefined;
+    comptime {
+        if(std.mem.lastIndexOfScalar(u8, file, '/')) |idx| {
+            file_name = file[idx + 1..];
+        } else {
+            file_name = file;
+        }
+    }
+    try self.get(
+        path ++ (if(path[path.len - 1] == '/' or file_name[file_name.len - 1] == '/') "" else "/") ++ file_name,
+        &.{ func.serverFile }
+    );
+}
+
 /// Start the server
 /// @param addr IPv4 address
 /// @param port port
