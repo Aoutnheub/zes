@@ -130,7 +130,7 @@ fn deinit(self: *Parser) void
 ```
 
 ```zig
-fn addFlag(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8) !void
+fn flag(self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8) !void
 ```
 
 Add a flag
@@ -144,7 +144,7 @@ Add a flag
   - `BufPrintError`
 
 ```zig
-fn addOption(
+fn option(
     self: *Parser, name: []const u8, help_: []const u8, abbr: ?u8,
     defaults_to: ?[]const u8, allowed: ?std.ArrayList([]const u8)
 ) !void
@@ -163,7 +163,7 @@ Add an option
   - `BufPrintError`
 
 ```zig
-fn addCommand(self: *Parser, name: []const u8, help_: []const u8) !void
+fn command(self: *Parser, name: []const u8, help_: []const u8) !void
 ```
 
 Add a command

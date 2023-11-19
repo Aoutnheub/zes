@@ -7,13 +7,13 @@ allocator: std.mem.Allocator
 ```
 
 ```zig
-flag: ?std.hash_map.StringHashMap(bool) = null
+flags: ?std.hash_map.StringHashMap(bool) = null
 ```
 
 Stores flag values after parsing
 
 ```zig
-option: ?std.hash_map.StringHashMap([]const u8) = null
+options: ?std.hash_map.StringHashMap([]const u8) = null
 ```
 
 Stores option values after parsing
@@ -34,5 +34,13 @@ Stores the command after parsing
 ## Functions
 
 ```zig
-fn deinit(self: *Results) void
+fn deinit(self: *Self) void
+```
+
+```zig
+fn flag(self: *Self, name: []const u8) bool
+```
+
+```zig
+fn option(self: *Self, name: []const u8) ?[]const u8
 ```
