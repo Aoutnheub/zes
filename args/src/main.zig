@@ -60,9 +60,9 @@ pub const Results = struct {
     command: ?[]u8 = null,
 
     pub fn deinit(self: *Self) void {
-        if(self.flags) |flag_| { flag_.deinit(); }
-        if(self.options) |option_| { option_.deinit(); }
-        if(self.positional) |positional| { positional.deinit(); }
+        if(self.flags) |*flag_| { flag_.deinit(); }
+        if(self.options) |*option_| { option_.deinit(); }
+        if(self.positional) |*positional| { positional.deinit(); }
         if(self.command) |command| { self.allocator.free(command); }
     }
 
