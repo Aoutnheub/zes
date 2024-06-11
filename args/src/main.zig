@@ -374,7 +374,7 @@ pub const Parser = struct {
     ///     - ParseError.MissingValue `err` field contains the option missing a value
     ///     - Allocator.Error
     ///     - BufPrintError
-    pub fn parse(self: *Parser, args: [][:0]u8) ParseError!Results {
+    pub fn parse(self: *Parser, args: [][:0]const u8) ParseError!Results {
         var results = Results{
             .allocator = self.allocator,
             .flags = null,
@@ -495,7 +495,7 @@ pub const Parser = struct {
                         } else if(args[i][0] == '-' and args[i][1] == '-') {
                             if(std.mem.indexOf(u8, args[i], "=")) |equals| {
                                 const op = args[i][2..equals];
-                                var val: []u8 = undefined;
+                                var val: []const u8 = undefined;
                                 if(equals + 1 < args[i].len) {
                                     val = args[i][equals + 1..];
                                 } else {
