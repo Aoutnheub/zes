@@ -31,7 +31,7 @@ pub fn build(b: *std.Build) !void {
     defer ex_dir.close();
     var ex_dir_iter = ex_dir.iterate();
     while(try ex_dir_iter.next()) |entry| {
-        var name = try std.fmt.allocPrint(std.heap.page_allocator, "example-{s}", .{ entry.name[0..std.mem.indexOf(u8, entry.name, ".zig").?] });
+        const name = try std.fmt.allocPrint(std.heap.page_allocator, "example-{s}", .{ entry.name[0..std.mem.indexOf(u8, entry.name, ".zig").?] });
         const exe = b.addExecutable(.{
             .name = name,
             .root_source_file = .{ .path = try std.fmt.allocPrint(std.heap.page_allocator, "src/examples/{s}", .{ entry.name }) },

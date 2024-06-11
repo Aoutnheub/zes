@@ -226,7 +226,7 @@ pub const Response = struct {
     /// This function starts and finishes the request
     /// If you want to just send some bytes use `send`
     pub fn sendFmt(self: *Response, status: std.http.Status, comptime fmt: []const u8, args: anytype) !void {
-        var bytes = try std.fmt.allocPrint(self.allocator, fmt, args);
+        const bytes = try std.fmt.allocPrint(self.allocator, fmt, args);
         defer self.allocator.free(bytes);
         try self.send(status, bytes);
     }
@@ -235,7 +235,7 @@ pub const Response = struct {
     /// This function starts and finishes the request
     /// If you want to just send some bytes use `send`
     pub fn sendJSON(self: *Response, status: std.http.Status, obj: anytype) !void {
-        var bytes = try std.json.stringifyAlloc(self.allocator, obj, .{});
+        const bytes = try std.json.stringifyAlloc(self.allocator, obj, .{});
         defer self.allocator.free(bytes);
         try self.send(status, bytes);
     }
@@ -253,7 +253,7 @@ pub const Response = struct {
     /// Read the body of the request
     /// @param buf buffer where data will be written
     pub fn read(self: *Response, buf: []u8) ![]u8 {
-        var size = try self.res.read(buf);
+        const size = try self.res.read(buf);
 
         return buf[0..size];
     }
@@ -261,7 +261,7 @@ pub const Response = struct {
     /// Read the body of the request
     /// @param buf buffer where data will be written
     pub fn readAll(self: *Response, buf: []u8) ![]u8 {
-        var size = try self.res.readAll(buf);
+        const size = try self.res.readAll(buf);
 
         return buf[0..size];
     }
@@ -309,7 +309,7 @@ _server: std.http.Server,
 _handlers: std.ArrayList(Handler),
 
 pub fn init(alloc: std.mem.Allocator) Self {
-    var s = Self{
+    const s = Self{
         .allocator = alloc,
         ._server = std.http.Server.init(alloc, .{}),
         ._handlers = std.ArrayList(Handler).init(alloc)
@@ -398,7 +398,7 @@ pub fn static(self: *Self, comptime path: []const u8, comptime file: []const u8)
         fn serverFile(res: *Response) !void {
             var f = try std.fs.cwd().openFile(file, .{});
             defer f.close();
-            var content = try f.readToEndAlloc(std.heap.page_allocator, 8_000_000);
+            const content = try f.readToEndAlloc(std.heap.page_allocator, 8_000_000);
             defer std.heap.page_allocator.free(content);
             try res.send(.ok, content);
         }
@@ -424,7 +424,7 @@ pub fn listen(self: *Self, addr: [4]u8, port: u16) !void {
     try self._server.listen(std.net.Address.initIp4(addr, port));
 
     while(true) {
-        var res = try self._server.accept(.{ .allocator = self.allocator });
+        const res = try self._server.accept(.{ .allocator = self.allocator });
         var thread = try std.Thread.spawn(.{}, newRequest, .{ self, res });
         thread.detach();
     }
@@ -536,7 +536,7 @@ fn newRequest(self: *Self, res_: std.http.Server.Response) !void {
 
             // Gather cookies
             if(res.res.request.headers.firstIndexOf("Cookie")) |cookie_idx| {
-                var cookies = res.res.request.headers.list.items[cookie_idx];
+                const cookies = res.res.request.headers.list.items[cookie_idx];
                 var iter = std.mem.tokenizeScalar(u8, cookies.value, ';');
                 while(iter.next()) |cookie| {
                     if(std.mem.indexOfScalar(u8, cookie, '=')) |eql_idx| {

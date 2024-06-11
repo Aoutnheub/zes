@@ -39,7 +39,8 @@ test "duplicate command" {
 
 test "invalid argument" {
     var astr: [64:0]u8 = undefined;
-    std.mem.copy(u8, &astr, "exe\x00 --arg\x00");
+    const text = "exe\x00 --arg\x00";
+    @memcpy(astr[0..text.len], text);
     var a: [2][:0]u8 = .{ astr[0..3:0], astr[5..10:0] };
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
     var errored = false;
@@ -53,7 +54,8 @@ test "invalid argument" {
 
 test "invalid value" {
     var astr: [64:0]u8 = undefined;
-    std.mem.copy(u8, &astr, "exe\x00 --arg=maybe\x00");
+    const text = "exe\x00 --arg=maybe\x00";
+    @memcpy(astr[0..text.len], text);
     var a: [2][:0]u8 = .{ astr[0..3:0], astr[5..16:0] };
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
     var allowed = std.ArrayList([]const u8).init(std.heap.page_allocator);
@@ -71,7 +73,8 @@ test "invalid value" {
 
 test "missing value" {
     var astr: [64:0]u8 = undefined;
-    std.mem.copy(u8, &astr, "exe\x00 --arg\x00");
+    const text = "exe\x00 --arg\x00";
+    @memcpy(astr[0..text.len], text);
     var a: [2][:0]u8 = .{ astr[0..3:0], astr[5..10:0] };
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
     try parser.option("arg", "Test", null, "", null);
@@ -86,7 +89,8 @@ test "missing value" {
 
 test "parse" {
     var astr: [64:0]u8 = undefined;
-    std.mem.copy(u8, &astr, "exe\x00 --op=test\x00 -f\x00 TEST\x00 -xyO=10\x00 --zflag\x00");
+    const text = "exe\x00 --op=test\x00 -f\x00 TEST\x00 -xyO=10\x00 --zflag\x00";
+    @memcpy(astr[0..text.len], text);
     var a: [6][:0]u8 = .{
         astr[0..3:0], astr[5..14:0], astr[16..18:0],
         astr[20..24:0], astr[26..33:0], astr[35..42:0]
@@ -114,7 +118,8 @@ test "parse" {
 
 test "command" {
     var astr: [64:0]u8 = undefined;
-    std.mem.copy(u8, &astr, "exe\x00 command\x00");
+    const text = "exe\x00 command\x00";
+    @memcpy(astr[0..text.len], text);
     var a: [2][:0]u8 = .{
         astr[0..3:0], astr[5..12:0]
     };
@@ -122,13 +127,14 @@ test "command" {
     var parser = args.Parser.init(std.heap.page_allocator, "Test", "Test");
     try parser.command("command", "Test");
 
-    var results = try parser.parse(&a);
+    const results = try parser.parse(&a);
     try std.testing.expectEqualStrings("command", results.command.?);
 }
 
 test "missing command" {
     var astr: [64:0]u8 = undefined;
-    std.mem.copy(u8, &astr, "exe\x00 command\x00");
+    const text = "exe\x00 command\x00";
+    @memcpy(astr[0..text.len], text);
     var a: [2][:0]u8 = .{
         astr[0..3:0], astr[5..12:0]
     };

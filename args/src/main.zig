@@ -308,7 +308,7 @@ pub const Parser = struct {
             while(flags_iter.next()) |entry| {
                 if(self.colors) { try stdout.print("{s}", .{ self.flag_color }); }
                 try stdout.print("    --{s}", .{ entry.key_ptr.* });
-                var tmp = abbr.get(entry.key_ptr.*);
+                const tmp = abbr.get(entry.key_ptr.*);
                 if(tmp != null) { try stdout.print(", -{c}", .{ tmp.? }); }
                 if(self.colors) { try stdout.print("\x1b[0m", .{}); }
                 try stdout.print("\n", .{});
@@ -336,7 +336,7 @@ pub const Parser = struct {
             while(options_iter.next()) |entry| {
                 if(self.colors) { try stdout.print("{s}", .{ self.option_color }); }
                 try stdout.print("    --{s}", .{ entry.key_ptr.* });
-                var tmp = abbr.get(entry.key_ptr.*);
+                const tmp = abbr.get(entry.key_ptr.*);
                 if(tmp != null) { try stdout.print(", -{c}", .{ tmp.? }); }
                 if(self.colors) { try stdout.print("\x1b[0m", .{}); }
                 if(entry.value_ptr.*.allowed != null) {
@@ -405,8 +405,8 @@ pub const Parser = struct {
         while(i < args.len) {
             if(!skip_command_check and i == 1 and self._commands.count() != 0) {
                 if(self._commands.contains(args[i])) {
-                    var cmd_cpy = try self.allocator.alloc(u8, args[i].len);
-                    std.mem.copy(u8, cmd_cpy, args[i]);
+                    const cmd_cpy = try self.allocator.alloc(u8, args[i].len);
+                    @memcpy(cmd_cpy, args[i]);
                     results.command = cmd_cpy;
                     i += 1;
                 } else {
@@ -425,45 +425,41 @@ pub const Parser = struct {
                 } else {
                     if(args[i].len > 2) {
                         if(args[i][0] == '-' and args[i][1] != '-') {
-                            var equals = std.mem.indexOf(u8, args[i], "=");
-                            if(equals != null) {
-                                if(equals.? == 2) { // option
-                                    var op = self._options_abbr.get(args[i][1]);
-                                    if(op != null) {
+                            if(std.mem.indexOf(u8, args[i], "=")) |equals| {
+                                if(equals == 2) { // option
+                                    if(self._options_abbr.get(args[i][1])) |op| {
                                         if(args[i].len > 3) {
-                                            var tmp = args[i][3..];
-                                            if(self.isAllowedOptionValue(op.?, tmp)) {
-                                                try results.options.?.put(op.?, tmp);
+                                            const tmp = args[i][3..];
+                                            if(self.isAllowedOptionValue(op, tmp)) {
+                                                try results.options.?.put(op, tmp);
                                                 i += 1;
                                             } else {
-                                                self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
+                                                self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                                 return ParseError.InvalidValue;
                                             }
                                         } else {
-                                            self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
+                                            self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                             return ParseError.MissingValue;
                                         }
                                     }
                                 } else { // multiple flags and one option
                                     var ii: usize = 1;
-                                    while(ii < equals.? - 1) {
-                                        var fl = self._flags_abbr.get(args[i][ii]);
-                                        if(fl != null) {
-                                            try results.flags.?.put(fl.?, true);
+                                    while(ii < equals - 1) {
+                                        if(self._flags_abbr.get(args[i][ii])) |fl| {
+                                            try results.flags.?.put(fl, true);
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
                                             return ParseError.InvalidArgument;
                                         }
                                         ii += 1;
                                     }
-                                    if(equals.? + 1 < args[i].len) {
-                                        var op = self._options_abbr.get(args[i][equals.? - 1]);
-                                        if(op != null) {
-                                            var tmp = args[i][equals.? + 1..];
-                                            if(self.isAllowedOptionValue(op.?, tmp)) {
-                                                try results.options.?.put(op.?, tmp);
+                                    if(equals + 1 < args[i].len) {
+                                        if(self._options_abbr.get(args[i][equals - 1])) |op| {
+                                            const tmp = args[i][equals + 1..];
+                                            if(self.isAllowedOptionValue(op, tmp)) {
+                                                try results.options.?.put(op, tmp);
                                             } else {
-                                                self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
+                                                self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                                 return ParseError.MissingValue;
                                             }
                                         }
@@ -474,21 +470,19 @@ pub const Parser = struct {
                                     i += 1;
                                 }
                             } else { // option and value with no space
-                                var op = self._options_abbr.get(args[i][1]);
-                                if(op != null) {
-                                    var tmp = args[i][2..];
-                                    if(self.isAllowedOptionValue(op.?, tmp)) {
-                                        try results.options.?.put(op.?, tmp);
+                                if(self._options_abbr.get(args[i][1])) |op| {
+                                    const tmp = args[i][2..];
+                                    if(self.isAllowedOptionValue(op, tmp)) {
+                                        try results.options.?.put(op, tmp);
                                     } else {
-                                        self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
+                                        self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                         return ParseError.MissingValue;
                                     }
                                 } else { // multiple flags
                                     var ii: usize = 1;
                                     while(ii < args[i].len) {
-                                        var fl = self._flags_abbr.get(args[i][ii]);
-                                        if(fl != null) {
-                                            try results.flags.?.put(fl.?, true);
+                                        if(self._flags_abbr.get(args[i][ii])) |fl| {
+                                            try results.flags.?.put(fl, true);
                                         } else {
                                             self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
                                             return ParseError.InvalidArgument;
@@ -499,12 +493,11 @@ pub const Parser = struct {
                                 i += 1;
                             }
                         } else if(args[i][0] == '-' and args[i][1] == '-') {
-                            var equals = std.mem.indexOf(u8, args[i], "=");
-                            if(equals != null) {
-                                var op = args[i][2..equals.?];
+                            if(std.mem.indexOf(u8, args[i], "=")) |equals| {
+                                const op = args[i][2..equals];
                                 var val: []u8 = undefined;
-                                if(equals.? + 1 < args[i].len) {
-                                    val = args[i][equals.? + 1..];
+                                if(equals + 1 < args[i].len) {
+                                    val = args[i][equals + 1..];
                                 } else {
                                     self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                     return ParseError.MissingValue;
@@ -517,7 +510,7 @@ pub const Parser = struct {
                                 }
                                 i += 1;
                             } else {
-                                var arg = args[i][2..];
+                                const arg = args[i][2..];
                                 if(self._flags.contains(arg)) {
                                     try results.flags.?.put(arg, true);
                                     i += 1;
@@ -556,26 +549,24 @@ pub const Parser = struct {
                         }
                     } else if(args[i].len == 2) {
                         if(args[i][0] == '-') {
-                            var fl = self._flags_abbr.get(args[i][1]);
-                            if(fl != null) {
-                                try results.flags.?.put(fl.?, true);
+                            if(self._flags_abbr.get(args[i][1])) |fl| {
+                                try results.flags.?.put(fl, true);
                                 i += 1;
                             } else {
-                                var op = self._options_abbr.get(args[i][1]);
-                                if(op != null) {
+                                if(self._options_abbr.get(args[i][1])) |op| {
                                     if(i + 1 < args.len) {
                                         if(args[i + 1].len == 0) {
-                                            try results.options.?.put(op.?, args[i + 1]);
+                                            try results.options.?.put(op, args[i + 1]);
                                         } else {
                                             if(args[i + 1][0] != '-') {
-                                                try results.options.?.put(op.?, args[i + 1]);
+                                                try results.options.?.put(op, args[i + 1]);
                                             } else {
-                                                self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
+                                                self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                                 return ParseError.MissingValue;
                                             }
                                         }
                                     } else {
-                                        self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op.? });
+                                        self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                         return ParseError.MissingValue;
                                     }
                                     i += 2;
@@ -625,7 +616,7 @@ pub const Parser = struct {
     }
 
     fn isAllowedOptionValue(self: Parser, opt: []const u8, val: []const u8) bool {
-        var option_ = self._options.get(opt);
+        const option_ = self._options.get(opt);
         var allowed = false;
         if(option_) |op| {
             if(op.allowed) |alw| {
