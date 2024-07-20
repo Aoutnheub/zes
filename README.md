@@ -11,4 +11,3 @@ Collection of small libraries for Zig.
 ## Libraries
 
 - **args** - Command line argument parser
-- **server** - Small wrapper around `std.http.Server`
