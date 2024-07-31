@@ -6,16 +6,33 @@ pub fn build(b: *std.Build) void {
 
     const lib = b.addStaticLibrary(.{
         .name = "args",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{
+            .src_path = .{
+                .owner = b,
+                .sub_path = "src/main.zig"
+            }
+        },
         .target = target,
         .optimize = optimize,
     });
     b.installArtifact(lib);
 
-    const mod = b.createModule(.{ .root_source_file = .{ .path = "src/main.zig" } });
+    const mod = b.createModule(.{
+        .root_source_file = .{
+            .src_path = .{
+                .owner = b,
+                .sub_path = "src/main.zig"
+            }
+        }
+    });
 
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/test.zig" },
+        .root_source_file = .{
+            .src_path = .{
+                .owner = b,
+                .sub_path = "src/test.zig"
+            }
+        },
         .target = target,
         .optimize = optimize,
     });
