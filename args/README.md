@@ -15,9 +15,9 @@ pub fn main() !void {
     try parser.flag("help", "Print this message and exit", 'h');
     try parser.option("name", "Who to say hi to", null, null, null);
 
-    var ags = try std.process.argsAlloc(std.heap.page_allocator);
-    defer std.process.argsFree(std.heap.page_allocator, ags);
-    var results = try parser.parse(ags);
+    var raw_args = try std.process.argsWithAllocator(std.heap.page_allocator);
+    defer raw_args.deinit();
+    var results = try parser.parse(&raw_args);
     defer results.deinit();
 
     if(results.flag("help")) {

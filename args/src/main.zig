@@ -20,7 +20,7 @@
 /// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 /// SOFTWARE.
 
-/// Tested on Zig version: 0.11.0
+/// Tested on Zig version: 0.14.1
 
 const std = @import("std");
 
@@ -255,7 +255,7 @@ pub const Parser = struct {
                 indent[indent_size - 1] = ' ';
                 indent_size -= 1;
             }
-            var tokens = std.mem.tokenize(u8, self._description, "\n");
+            var tokens = std.mem.tokenizeAny(u8, self._description, "\n");
             var first_token = true;
             while(tokens.next()) |token| {
                 if(first_token) {
@@ -286,7 +286,7 @@ pub const Parser = struct {
                 try stdout.print("\n", .{});
                 if(!std.mem.eql(u8, entry.value_ptr.*, "")) {
                     if(self.colors) { try stdout.print("{s}", .{ self.command_description_color }); }
-                    var tokens = std.mem.tokenize(u8, entry.value_ptr.*, "\n");
+                    var tokens = std.mem.tokenizeAny(u8, entry.value_ptr.*, "\n");
                     while(tokens.next()) |token| {
                         try stdout.print("        {s}\n", .{ token });
                     }
@@ -314,7 +314,7 @@ pub const Parser = struct {
                 try stdout.print("\n", .{});
                 if(!std.mem.eql(u8, entry.value_ptr.*, "")) {
                     if(self.colors) { try stdout.print("{s}", .{ self.flag_description_color }); }
-                    var tokens = std.mem.tokenize(u8, entry.value_ptr.*, "\n");
+                    var tokens = std.mem.tokenizeAny(u8, entry.value_ptr.*, "\n");
                     while(tokens.next()) |token| {
                         try stdout.print("        {s}\n", .{ token });
                     }
@@ -353,7 +353,7 @@ pub const Parser = struct {
                 try stdout.print("\n", .{});
                 if(!std.mem.eql(u8, entry.value_ptr.*.help, "")) {
                     if(self.colors) { try stdout.print("{s}", .{ self.option_description_color }); }
-                    var tokens = std.mem.tokenize(u8, entry.value_ptr.*.help, "\n");
+                    var tokens = std.mem.tokenizeAny(u8, entry.value_ptr.*.help, "\n");
                     while(tokens.next()) |token| {
                         try stdout.print("        {s}\n", .{ token });
                     }
@@ -374,7 +374,7 @@ pub const Parser = struct {
     ///     - ParseError.MissingValue `err` field contains the option missing a value
     ///     - Allocator.Error
     ///     - BufPrintError
-    pub fn parse(self: *Parser, args: [][:0]const u8) ParseError!Results {
+    pub fn parse(self: *Parser, args: std.ArrayList([:0]const u8)) ParseError!Results {
         var results = Results{
             .allocator = self.allocator,
             .flags = null,
@@ -402,34 +402,34 @@ pub const Parser = struct {
 
         var i: usize = 1;
         var skip_command_check = false;
-        while(i < args.len) {
+        while(i < args.items.len) {
             if(!skip_command_check and i == 1 and self._commands.count() != 0) {
-                if(self._commands.contains(args[i])) {
-                    const cmd_cpy = try self.allocator.alloc(u8, args[i].len);
-                    @memcpy(cmd_cpy, args[i]);
+                if(self._commands.contains(args.items[i])) {
+                    const cmd_cpy = try self.allocator.alloc(u8, args.items[i].len);
+                    @memcpy(cmd_cpy, args.items[i]);
                     results.command = cmd_cpy;
                     i += 1;
                 } else {
                     if(self.command_required) {
-                        self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ args[i] });
+                        self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ args.items[i] });
                         return ParseError.InvalidArgument;
                     }
                 }
                 skip_command_check = true;
             } else {
-                if(std.mem.eql(u8, args[i], "--")) {
-                    for(args) |val| {
+                if(std.mem.eql(u8, args.items[i], "--")) {
+                    for(args.items) |val| {
                         try results.positional.?.append(val);
                     }
-                    i = args.len;
+                    i = args.items.len;
                 } else {
-                    if(args[i].len > 2) {
-                        if(args[i][0] == '-' and args[i][1] != '-') {
-                            if(std.mem.indexOf(u8, args[i], "=")) |equals| {
+                    if(args.items[i].len > 2) {
+                        if(args.items[i][0] == '-' and args.items[i][1] != '-') {
+                            if(std.mem.indexOf(u8, args.items[i], "=")) |equals| {
                                 if(equals == 2) { // option
-                                    if(self._options_abbr.get(args[i][1])) |op| {
-                                        if(args[i].len > 3) {
-                                            const tmp = args[i][3..];
+                                    if(self._options_abbr.get(args.items[i][1])) |op| {
+                                        if(args.items[i].len > 3) {
+                                            const tmp = args.items[i][3..];
                                             if(self.isAllowedOptionValue(op, tmp)) {
                                                 try results.options.?.put(op, tmp);
                                                 i += 1;
@@ -445,17 +445,17 @@ pub const Parser = struct {
                                 } else { // multiple flags and one option
                                     var ii: usize = 1;
                                     while(ii < equals - 1) {
-                                        if(self._flags_abbr.get(args[i][ii])) |fl| {
+                                        if(self._flags_abbr.get(args.items[i][ii])) |fl| {
                                             try results.flags.?.put(fl, true);
                                         } else {
-                                            self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
+                                            self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args.items[i][ii] });
                                             return ParseError.InvalidArgument;
                                         }
                                         ii += 1;
                                     }
-                                    if(equals + 1 < args[i].len) {
-                                        if(self._options_abbr.get(args[i][equals - 1])) |op| {
-                                            const tmp = args[i][equals + 1..];
+                                    if(equals + 1 < args.items[i].len) {
+                                        if(self._options_abbr.get(args.items[i][equals - 1])) |op| {
+                                            const tmp = args.items[i][equals + 1..];
                                             if(self.isAllowedOptionValue(op, tmp)) {
                                                 try results.options.?.put(op, tmp);
                                             } else {
@@ -464,14 +464,14 @@ pub const Parser = struct {
                                             }
                                         }
                                     } else {
-                                        self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
+                                        self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args.items[i][ii] });
                                         return ParseError.MissingValue;
                                     }
                                     i += 1;
                                 }
                             } else { // option and value with no space
-                                if(self._options_abbr.get(args[i][1])) |op| {
-                                    const tmp = args[i][2..];
+                                if(self._options_abbr.get(args.items[i][1])) |op| {
+                                    const tmp = args.items[i][2..];
                                     if(self.isAllowedOptionValue(op, tmp)) {
                                         try results.options.?.put(op, tmp);
                                     } else {
@@ -480,11 +480,11 @@ pub const Parser = struct {
                                     }
                                 } else { // multiple flags
                                     var ii: usize = 1;
-                                    while(ii < args[i].len) {
-                                        if(self._flags_abbr.get(args[i][ii])) |fl| {
+                                    while(ii < args.items[i].len) {
+                                        if(self._flags_abbr.get(args.items[i][ii])) |fl| {
                                             try results.flags.?.put(fl, true);
                                         } else {
-                                            self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][ii] });
+                                            self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args.items[i][ii] });
                                             return ParseError.InvalidArgument;
                                         }
                                         ii += 1;
@@ -492,12 +492,12 @@ pub const Parser = struct {
                                 }
                                 i += 1;
                             }
-                        } else if(args[i][0] == '-' and args[i][1] == '-') {
-                            if(std.mem.indexOf(u8, args[i], "=")) |equals| {
-                                const op = args[i][2..equals];
+                        } else if(args.items[i][0] == '-' and args.items[i][1] == '-') {
+                            if(std.mem.indexOf(u8, args.items[i], "=")) |equals| {
+                                const op = args.items[i][2..equals];
                                 var val: []const u8 = undefined;
-                                if(equals + 1 < args[i].len) {
-                                    val = args[i][equals + 1..];
+                                if(equals + 1 < args.items[i].len) {
+                                    val = args.items[i][equals + 1..];
                                 } else {
                                     self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                     return ParseError.MissingValue;
@@ -510,19 +510,19 @@ pub const Parser = struct {
                                 }
                                 i += 1;
                             } else {
-                                const arg = args[i][2..];
+                                const arg = args.items[i][2..];
                                 if(self._flags.contains(arg)) {
                                     try results.flags.?.put(arg, true);
                                     i += 1;
                                 } else {
                                     if(self._options.contains(arg)) {
-                                        if(i + 1 < args.len) {
-                                            if(args[i + 1].len == 0) {
-                                                try results.options.?.put(arg, args[i + 1]);
+                                        if(i + 1 < args.items.len) {
+                                            if(args.items[i + 1].len == 0) {
+                                                try results.options.?.put(arg, args.items[i + 1]);
                                             } else {
-                                                if(args[i + 1][0] != '-') {
-                                                    if(self.isAllowedOptionValue(arg, args[i + 1])) {
-                                                        try results.options.?.put(arg, args[i + 1]);
+                                                if(args.items[i + 1][0] != '-') {
+                                                    if(self.isAllowedOptionValue(arg, args.items[i + 1])) {
+                                                        try results.options.?.put(arg, args.items[i + 1]);
                                                     } else {
                                                         self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ arg });
                                                         return ParseError.InvalidValue;
@@ -544,22 +544,22 @@ pub const Parser = struct {
                                 }
                             }
                         } else {
-                            try results.positional.?.append(args[i]);
+                            try results.positional.?.append(args.items[i]);
                             i += 1;
                         }
-                    } else if(args[i].len == 2) {
-                        if(args[i][0] == '-') {
-                            if(self._flags_abbr.get(args[i][1])) |fl| {
+                    } else if(args.items[i].len == 2) {
+                        if(args.items[i][0] == '-') {
+                            if(self._flags_abbr.get(args.items[i][1])) |fl| {
                                 try results.flags.?.put(fl, true);
                                 i += 1;
                             } else {
-                                if(self._options_abbr.get(args[i][1])) |op| {
-                                    if(i + 1 < args.len) {
-                                        if(args[i + 1].len == 0) {
-                                            try results.options.?.put(op, args[i + 1]);
+                                if(self._options_abbr.get(args.items[i][1])) |op| {
+                                    if(i + 1 < args.items.len) {
+                                        if(args.items[i + 1].len == 0) {
+                                            try results.options.?.put(op, args.items[i + 1]);
                                         } else {
-                                            if(args[i + 1][0] != '-') {
-                                                try results.options.?.put(op, args[i + 1]);
+                                            if(args.items[i + 1][0] != '-') {
+                                                try results.options.?.put(op, args.items[i + 1]);
                                             } else {
                                                 self.err = try std.fmt.bufPrint(&self._err_buf, "{s}", .{ op });
                                                 return ParseError.MissingValue;
@@ -571,16 +571,16 @@ pub const Parser = struct {
                                     }
                                     i += 2;
                                 } else {
-                                    self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args[i][1] });
+                                    self.err = try std.fmt.bufPrint(&self._err_buf, "{c}", .{ args.items[i][1] });
                                     return ParseError.InvalidArgument;
                                 }
                             }
                         } else {
-                            try results.positional.?.append(args[i]);
+                            try results.positional.?.append(args.items[i]);
                             i += 1;
                         }
                     } else {
-                        try results.positional.?.append(args[i]);
+                        try results.positional.?.append(args.items[i]);
                         i += 1;
                     }
                 }
@@ -593,6 +593,16 @@ pub const Parser = struct {
         }
 
         return results;
+    }
+
+    pub fn parseIter(self: *Parser, iter: *std.process.ArgIterator) ParseError!Results {
+        var a = std.ArrayList([:0]const u8).init(self.allocator);
+        defer a.deinit();
+        while(iter.next()) |arg| {
+            try a.append(arg);
+        }
+
+        return self.parse(a);
     }
 
     fn getFlagsAbbr(self: *Parser) !std.array_hash_map.StringArrayHashMap(u8) {
